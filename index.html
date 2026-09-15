@@ -130,7 +130,9 @@
   .odds-tag .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
   .odds-tag .value { font-size: 20px; font-weight: 800; margin-top: 2px; }
 
-  .bet-control { display: flex; gap: 8px; }
+  .bet-control { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bet-control input[type=text] { flex: 1 1 100%; }
+  .bet-control input[type=number] { flex: 1 1 60%; }
   .bet-control input {
     flex: 1;
     background: #1c2029;
@@ -220,6 +222,44 @@
   }
   .clear-all:hover { background: rgba(244, 91, 105, 0.1); }
 
+  .bettors-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  .bettors-card h3 {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .bettor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .bettor-name { font-weight: 800; }
+  .bettor-total { color: var(--muted); white-space: nowrap; }
+  .bettor-total b { color: var(--green); }
+  .bettor-bets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bettor-detail {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    color: var(--text);
+  }
+
   footer {
     text-align: center;
     color: var(--muted);
@@ -287,7 +327,8 @@ function eventBets(ev) {
     arr.forEach((b, i) => list.push({
       runnerKey: r.key,
       runnerName: r.name,
-      amount: b,
+      amount: typeof b === "number" ? b : (b.amount || 0),
+      bidder: typeof b === "number" ? "Unknown" : (b.name || "Unknown"),
       ...{ runnerColor: r.color },
       ...{ id: ev.id + "_" + r.key + "_" + i },
     }));
@@ -299,18 +340,20 @@ function totalsFor(ev) {
   const totals = {};
   let pool = 0;
   ev.runners.forEach(r => {
-    const amt = (bets[ev.id + "_" + r.key] || []).reduce((a, b) => a + b, 0);
+    const amt = (bets[ev.id + "_" + r.key] || []).reduce((a, b) => a + (typeof b === "number" ? b : (b.amount || 0)), 0);
     totals[r.key] = amt;
     pool += amt;
   });
   return { totals, pool };
 }
 
-function placeBet(evKey, runnerKey, amount) {
+function placeBet(evKey, runnerKey, amount, name) {
   const n = Number(amount);
+  const who = String(name || "").trim();
   if (!isFinite(n) || n <= 0) { alert("Enter a valid bet amount above 0."); return; }
+  if (!who) { alert("Enter your name."); return; }
   const arr = (bets[evKey + "_" + runnerKey] || []).slice();
-  arr.push(n);
+  arr.push({ amount: n, name: who });
   bets[evKey + "_" + runnerKey] = arr;
   save();
   render();
@@ -369,7 +412,8 @@ function render() {
 
           <div>
             <div class="bet-control" data-ev="${ev.id}" data-runner="${r.key}">
-              <input type="number" min="1" step="any" placeholder="Enter ₹ amount" />
+              <input type="text" maxlength="30" placeholder="Your name" />
+              <input type="number" min="1" step="any" placeholder="₹ amount" />
               <button class="place-btn">Place Bet</button>
             </div>
             <div class="return-hint" style="margin-top:8px;">
@@ -386,7 +430,7 @@ function render() {
           <div class="bet-item">
             <span class="who" style="color: rgb(${b.runnerColor});">● ${b.runnerName}</span>
             <span class="amt">${fmt(b.amount)}</span>
-            <span class="pot">→ would win ~${fmt(b.amount * (totals[b.runnerKey] > 0 ? (pool * (1 - COMMISSION)) / totals[b.runnerKey] : 0))}</span>
+            <span class="pot">by <b>${b.bidder}</b> → would win ~${fmt(b.amount * (totals[b.runnerKey] > 0 ? (pool * (1 - COMMISSION)) / totals[b.runnerKey] : 0))}</span>
             <button data-remove="${b.id}">×</button>
           </div>`).join("")
       : '<div class="empty">No bets placed on this event yet.</div>';
@@ -423,6 +467,10 @@ function render() {
         <div class="value green">${fmt(grandPool * (1 - COMMISSION))}</div>
       </div>
     </div>
+    <div class="bettors-card">
+      <h3>Bettors — who bet how much</h3>
+      ${bettorsHtml()}
+    </div>
     <button class="clear-all" id="clearAll">Clear all bets</button>
   `;
 
@@ -431,8 +479,9 @@ function render() {
   root.querySelectorAll(".place-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const control = btn.closest(".bet-control");
-      const input = control.querySelector("input");
-      placeBet(control.dataset.ev, control.dataset.runner, input.value);
+      const name = control.querySelector("input[type=text]").value;
+      const amount = control.querySelector("input[type=number]").value;
+      placeBet(control.dataset.ev, control.dataset.runner, amount, name);
     });
   });
 
@@ -454,15 +503,47 @@ function render() {
   if (clearBtn) clearBtn.addEventListener("click", clearAll);
 }
 
+function bettorsHtml() {
+  const byName = {};
+  EVENTS.forEach(ev => {
+    eventBets(ev).forEach(b => {
+      if (!byName[b.bidder]) byName[b.bidder] = { total: 0, bets: [] };
+      byName[b.bidder].total += b.amount;
+      byName[b.bidder].bets.push({
+        event: ev.name,
+        runner: b.runnerName,
+        amount: b.amount,
+        color: b.runnerColor,
+      });
+    });
+  });
+
+  const names = Object.keys(byName);
+  if (!names.length) return '<div class="empty">No bets placed yet.</div>';
+
+  return names.map(name => {
+    const p = byName[name];
+    const detail = p.bets.map(b =>
+      `<span class="bettor-detail" style="border-color: rgb(${b.color});">${b.event} · ${b.runner}: ${fmt(b.amount)}</span>`
+    ).join("");
+    return `
+      <div class="bettor-row">
+        <span class="bettor-name">👤 ${name}</span>
+        <span class="bettor-bets">${detail}</span>
+        <span class="bettor-total">Total: <b>${fmt(p.total)}</b></span>
+      </div>`;
+  }).join("");
+}
+
 function amountInput(evId, runnerKey) {
-  const el = root.querySelector(`[data-ev="${evId}"][data-runner="${runnerKey}"] input`);
+  const el = root.querySelector(`[data-ev="${evId}"][data-runner="${runnerKey}"] input[type=number]`);
   return el ? Number(el.value) : 0;
 }
 
 function renderPreview() {
   root.querySelectorAll(".bet-control").forEach(control => {
     const hint = control.parentElement.querySelector(".return-hint b");
-    const amt = Number(control.querySelector("input").value) || 0;
+    const amt = Number(control.querySelector("input[type=number]").value) || 0;
     const ev = EVENTS.find(e => e.id === control.dataset.ev);
     if (!ev) return;
     const { totals, pool } = totalsFor(ev);
