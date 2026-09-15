@@ -229,6 +229,82 @@
     padding: 20px;
     margin-top: 20px;
   }
+
+  .crown-btn {
+    width: 100%;
+    background: rgba(247, 179, 43, 0.15);
+    border: 1px solid rgba(247, 179, 43, 0.5);
+    color: var(--gold);
+    border-radius: 10px;
+    padding: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .crown-btn:hover { background: rgba(247, 179, 43, 0.25); }
+
+  .crown-hint {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    background: rgba(247, 179, 43, 0.12);
+    border: 1px solid rgba(247, 179, 43, 0.4);
+    border-radius: 10px;
+    padding: 9px;
+  }
+
+  .settlement-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  .settlement-card h3 {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .winner-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .reset-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .reset-btn:hover { color: var(--text); }
+  .pay-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .pay-from { color: var(--red); font-weight: 700; }
+  .pay-to { color: var(--green); font-weight: 700; }
+  .pay-arrow { color: var(--gold); font-size: 12px; }
+  .pay-amt { font-weight: 800; font-size: 15px; }
   .bettors-card h3 {
     font-size: 15px;
     color: var(--muted);
@@ -303,6 +379,7 @@ const EVENTS = [
 
 const COMMISSION = 0.01;
 const STORAGE_KEY = "sprint_bets";
+const WINNERS_KEY = "sprint_winners";
 
 function loadBets() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
@@ -312,8 +389,33 @@ function loadBets() {
 let bets = loadBets();
 const root = document.getElementById("root");
 
+function loadWinners() {
+  try { return JSON.parse(localStorage.getItem(WINNERS_KEY)) || {}; }
+  catch { return {}; }
+}
+
+let winners = loadWinners();
+
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bets));
+}
+
+function saveWinners() {
+  localStorage.setItem(WINNERS_KEY, JSON.stringify(winners));
+}
+
+function settleWinner(evKey, runnerKey) {
+  const { pool } = totalsFor(EVENTS.find(e => e.id === evKey));
+  if (pool <= 0) { alert("No bets on this event yet."); return; }
+  winners[evKey] = runnerKey;
+  saveWinners();
+  render();
+}
+
+function clearWinner(evKey) {
+  delete winners[evKey];
+  saveWinners();
+  render();
 }
 
 function fmt(n) {
@@ -375,6 +477,94 @@ function clearAll() {
   render();
 }
 
+function netPositions() {
+  const net = {};
+  EVENTS.forEach(ev => {
+    const winner = winners[ev.id];
+    if (!winner) return;
+    const { totals, pool } = totalsFor(ev);
+    if (pool <= 0) return;
+    const winningPool = pool * (1 - COMMISSION);
+    const book = totals[winner];
+    if (book <= 0) return;
+    const betsFor = eventBets(ev);
+    betsFor.forEach(b => {
+      const payout = b.runnerKey === winner
+        ? (b.amount / book) * winningPool
+        : 0;
+      net[b.bidder] = (net[b.bidder] || 0) + (payout - b.amount);
+    });
+    net["StakeLite (house)"] = (net["StakeLite (house)"] || 0) + pool * COMMISSION;
+  });
+  return net;
+}
+
+function settlementPayments() {
+  const net = netPositions();
+  const creditors = Object.keys(net).filter(k => net[k] > 0.005).map(k => ({ name: k, amt: net[k] }));
+  const debtors = Object.keys(net).filter(k => net[k] < -0.005).map(k => ({ name: k, amt: -net[k] }));
+  creditors.sort((a, b) => b.amt - a.amt);
+  debtors.sort((a, b) => b.amt - a.amt);
+  const payments = [];
+  let i = 0, j = 0;
+  while (i < creditors.length && j < debtors.length) {
+    const c = creditors[i], d = debtors[j];
+    const amt = Math.min(c.amt, d.amt);
+    if (amt > 0.005) payments.push({ from: d.name, to: c.name, amt });
+    c.amt -= amt;
+    d.amt -= amt;
+    if (c.amt < 0.005) i++;
+    if (d.amt < 0.005) j++;
+  }
+  return { payments, net };
+}
+
+function settlementHtml() {
+  const settled = EVENTS.filter(ev => winners[ev.id]);
+  const { payments, net } = settlementPayments();
+
+  const winnerLines = EVENTS
+    .filter(ev => winners[ev.id])
+    .map(ev => {
+      const w = ev.runners.find(r => r.key === winners[ev.id]);
+      const { totals, pool } = totalsFor(ev);
+      const book = totals[w.key] || 0;
+      const payoutPerUnit = book > 0 ? (pool * (1 - COMMISSION)) / book : 0;
+      return `
+        <div class="winner-line" style="border-color: rgb(${w.color});">
+          <span>🏆 <b>${ev.name}</b> → <b style="color: rgb(${w.color});">${w.name}</b> wins</span>
+          <span class="muted">payout ×${payoutPerUnit.toFixed(2)} per ₹1</span>
+          <button class="reset-btn" data-reset="${ev.id}">↺ redo</button>
+        </div>`;
+    })
+    .join("");
+
+  if (!settled.length) {
+    return `
+      <div class="settlement-card">
+        <h3>🧾 Settlement — who pays whom</h3>
+        <div class="empty">No events settled yet. Pick a winner on each event card to see who pays whom.</div>
+      </div>`;
+  }
+
+  const rows = payments.length
+    ? payments.map(p => `
+        <div class="pay-row">
+          <span class="pay-from">💸 ${p.from}</span>
+          <span class="pay-arrow">→ pays →</span>
+          <span class="pay-to">🤑 ${p.to}</span>
+          <span class="pay-amt">${fmt(p.amt)}</span>
+        </div>`).join("")
+    : '<div class="empty">All nets settle to zero.</div>';
+
+  return `
+    <div class="settlement-card">
+      <h3>🧾 Settlement — who pays whom</h3>
+      <div class="winner-list" style="margin-bottom:12px;">${winnerLines}</div>
+      ${rows}
+    </div>`;
+}
+
 function render() {
   let html = "";
   let grandPool = 0;
@@ -419,6 +609,9 @@ function render() {
             <div class="return-hint" style="margin-top:8px;">
               Potential return: <b>₹${(returnPerUnit * (amountInput(ev.id, r.key) || 0)).toFixed(2)}</b>
             </div>
+            ${winners[ev.id] === r.key
+              ? `<div class="crown-hint">🏆 Crowned winner of ${ev.name}</div>`
+              : `<button class="crown-btn" data-crown="${ev.id}" data-runner="${r.key}">🏆 Crown ${r.name} winner</button>`}
           </div>
         </div>
       `;
@@ -467,6 +660,7 @@ function render() {
         <div class="value green">${fmt(grandPool * (1 - COMMISSION))}</div>
       </div>
     </div>
+    ${settlementHtml()}
     <div class="bettors-card">
       <h3>Bettors — who bet how much</h3>
       ${bettorsHtml()}
@@ -497,6 +691,20 @@ function render() {
 
   root.querySelectorAll("[data-remove]").forEach(btn => {
     btn.addEventListener("click", () => removeBet(btn.dataset.remove));
+  });
+
+  root.querySelectorAll("[data-crown]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!confirm(`Crown this runner as the winner of this event?`)) return;
+      settleWinner(btn.dataset.crown, btn.dataset.runner);
+    });
+  });
+
+  root.querySelectorAll("[data-reset]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!confirm("Undo the winner for this event?")) return;
+      clearWinner(btn.dataset.reset);
+    });
   });
 
   const clearBtn = document.getElementById("clearAll");
