@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Betting Pool - Krish Jain vs Kshitij Pankaj</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1115;
+    --card: #171a22;
+    --border: #262b37;
+    --text: #e8eaf0;
+    --muted: #8b93a7;
+    --accent: #4f8cff;
+    --green: #31c48d;
+    --red: #f45b69;
+    --gold: #f7b32b;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .wrap { width: 100%; max-width: 980px; }
+
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  header h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  header p {
+    color: var(--muted);
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  .commission-badge {
+    display: inline-block;
+    margin-top: 10px;
+    background: rgba(247, 179, 43, 0.12);
+    border: 1px solid rgba(247, 179, 43, 0.4);
+    color: var(--gold);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .event-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .event-header h2 { font-size: 18px; }
+
+  .event-total {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .event-total span { color: var(--text); font-weight: 700; }
+
+  .runners { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .runner {
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .runner.krish { border-color: rgba(79, 140, 255, 0.45); }
+  .runner.kshitij { border-color: rgba(49, 196, 141, 0.45); }
+
+  .runner-name { font-size: 16px; font-weight: 700; }
+
+  .stats-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .stats-row b { color: var(--text); }
+
+  .pool-bar {
+    height: 8px;
+    background: #1c2029;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .pool-bar > div { height: 100%; border-radius: 999px; }
+
+  .odds-tag {
+    background: #171b25;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .odds-tag .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .odds-tag .value { font-size: 20px; font-weight: 800; margin-top: 2px; }
+
+  .bet-control { display: flex; gap: 8px; }
+  .bet-control input {
+    flex: 1;
+    background: #1c2029;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 15px;
+    min-width: 0;
+  }
+  .bet-control input:focus { outline: none; border-color: var(--accent); }
+  .bet-control button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .bet-control button:hover { filter: brightness(1.1); }
+
+  .return-hint { font-size: 13px; color: var(--muted); text-align: center; }
+  .return-hint b { color: var(--green); }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-top: 6px;
+  }
+
+  .summary-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .summary-box .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-box .value { font-size: 22px; font-weight: 800; margin-top: 4px; }
+
+  .muted { color: var(--muted); }
+  .green { color: var(--green); }
+  .gold { color: var(--gold); }
+
+  .bets-list { margin-top: 14px; }
+  .bets-list h3 { font-size: 14px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .bet-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .bet-item .who { font-weight: 700; }
+  .bet-item .amt { font-weight: 700; }
+  .bet-item .pot { color: var(--muted); }
+  .bet-item button {
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .bet-item button:hover { text-decoration: underline; }
+
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; }
+
+  .clear-all {
+    background: none;
+    border: 1px solid var(--red);
+    color: var(--red);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .clear-all:hover { background: rgba(244, 91, 105, 0.1); }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 560px) {
+    .runners { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🏁 Sprint Betting Pool</h1>
+    <p>Krish Jain vs Kshitij Pankaj</p>
+    <span class="commission-badge">1% House Commission</span>
+  </header>
+
+  <div id="root"></div>
+
+  <footer>
+    Pari-mutuel style: winners split 99% of the pool (after 1% house commission).
+    Odds &amp; returns update live as bets come in.
+  </footer>
+</div>
+
+<script>
+const EVENTS = [
+  { id: "100m", name: "100m Dash", runners: [
+    { name: "Krish Jain", key: "krish", color: "79, 140, 255" },
+    { name: "Kshitij Pankaj", key: "kshitij", color: "49, 196, 141" },
+  ]},
+  { id: "400m", name: "400m Dash", runners: [
+    { name: "Krish Jain", key: "krish", color: "79, 140, 255" },
+    { name: "Kshitij Pankaj", key: "kshitij", color: "49, 196, 141" },
+  ]},
+];
+
+const COMMISSION = 0.01;
+const STORAGE_KEY = "sprint_bets";
+
+function loadBets() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+
+let bets = loadBets();
+const root = document.getElementById("root");
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(bets));
+}
+
+function fmt(n) {
+  return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function eventBets(ev) {
+  const list = [];
+  ev.runners.forEach(r => {
+    const arr = bets[ev.id + "_" + r.key] || [];
+    arr.forEach((b, i) => list.push({
+      runnerKey: r.key,
+      runnerName: r.name,
+      amount: b,
+      ...{ runnerColor: r.color },
+      ...{ id: ev.id + "_" + r.key + "_" + i },
+    }));
+  });
+  return list;
+}
+
+function totalsFor(ev) {
+  const totals = {};
+  let pool = 0;
+  ev.runners.forEach(r => {
+    const amt = (bets[ev.id + "_" + r.key] || []).reduce((a, b) => a + b, 0);
+    totals[r.key] = amt;
+    pool += amt;
+  });
+  return { totals, pool };
+}
+
+function placeBet(evKey, runnerKey, amount) {
+  const n = Number(amount);
+  if (!isFinite(n) || n <= 0) { alert("Enter a valid bet amount above 0."); return; }
+  const arr = (bets[evKey + "_" + runnerKey] || []).slice();
+  arr.push(n);
+  bets[evKey + "_" + runnerKey] = arr;
+  save();
+  render();
+}
+
+function removeBet(id) {
+  const [evKey, runnerKey, idx] = id.split("_");
+  const arr = (bets[evKey + "_" + runnerKey] || []).slice();
+  arr.splice(Number(idx), 1);
+  bets[evKey + "_" + runnerKey] = arr;
+  save();
+  render();
+}
+
+function clearAll() {
+  if (!confirm("Clear all bets?")) return;
+  bets = {};
+  save();
+  render();
+}
+
+function render() {
+  let html = "";
+  let grandPool = 0;
+
+  EVENTS.forEach(ev => {
+    const { totals, pool } = totalsFor(ev);
+    grandPool += pool;
+    const winningPool = pool * (1 - COMMISSION);
+    const runnersHtml = ev.runners.map(r => {
+      const book = totals[r.key];
+      const odds = book > 0 ? winningPool / book : 1 / (1 - COMMISSION);
+      const returnPerUnit = book > 0 ? winningPool / book : 1 / (1 - COMMISSION);
+      const pct = pool > 0 ? (book / pool) * 100 : 0;
+      const allBets = eventBets(ev).filter(b => b.runnerKey === r.key);
+
+      return `
+        <div class="runner ${r.key}">
+          <div>
+            <div class="runner-name">${r.name}</div>
+            <div class="stats-row">
+              <span>Pool: <b>${fmt(book)}</b></span>
+              <span>Share: <b>${pct.toFixed(1)}%</b></span>
+              <span>Bets: <b>${allBets.length}</b></span>
+            </div>
+          </div>
+
+          <div class="pool-bar">
+            <div style="width: ${pct}%; background: rgb(${r.color});"></div>
+          </div>
+
+          <div class="odds-tag">
+            <div class="label">Returns per ₹1 (odds + 1)</div>
+            <div class="value">x${returnPerUnit.toFixed(2)}</div>
+          </div>
+
+          <div>
+            <div class="bet-control" data-ev="${ev.id}" data-runner="${r.key}">
+              <input type="number" min="1" step="any" placeholder="Enter ₹ amount" />
+              <button class="place-btn">Place Bet</button>
+            </div>
+            <div class="return-hint" style="margin-top:8px;">
+              Potential return: <b>₹${(returnPerUnit * (amountInput(ev.id, r.key) || 0)).toFixed(2)}</b>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const allBets = eventBets(ev);
+    const listHtml = allBets.length
+      ? allBets.map(b => `
+          <div class="bet-item">
+            <span class="who" style="color: rgb(${b.runnerColor});">● ${b.runnerName}</span>
+            <span class="amt">${fmt(b.amount)}</span>
+            <span class="pot">→ would win ~${fmt(b.amount * (totals[b.runnerKey] > 0 ? (pool * (1 - COMMISSION)) / totals[b.runnerKey] : 0))}</span>
+            <button data-remove="${b.id}">×</button>
+          </div>`).join("")
+      : '<div class="empty">No bets placed on this event yet.</div>';
+
+    html += `
+      <div class="event-card">
+        <div class="event-header">
+          <h2>${ev.name}</h2>
+          <div class="event-total">Event pool: <span>${fmt(pool)}</span> · After 1% cut: <span>${fmt(winningPool)}</span></div>
+        </div>
+
+        <div class="runners">${runnersHtml}</div>
+
+        <div class="bets-list">
+          <h3>Bets — ${ev.name}</h3>
+          ${listHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="summary">
+      <div class="summary-box">
+        <div class="label">Total Pool</div>
+        <div class="value">${fmt(grandPool)}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">House Commission (1%)</div>
+        <div class="value gold">${fmt(grandPool * COMMISSION)}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">Winners Split</div>
+        <div class="value green">${fmt(grandPool * (1 - COMMISSION))}</div>
+      </div>
+    </div>
+    <button class="clear-all" id="clearAll">Clear all bets</button>
+  `;
+
+  root.innerHTML = html;
+
+  root.querySelectorAll(".place-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const control = btn.closest(".bet-control");
+      const input = control.querySelector("input");
+      placeBet(control.dataset.ev, control.dataset.runner, input.value);
+    });
+  });
+
+  root.querySelectorAll("input").forEach(input => {
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        const btn = input.closest(".bet-control").querySelector(".place-btn");
+        btn.click();
+      }
+    });
+    input.addEventListener("input", renderPreview);
+  });
+
+  root.querySelectorAll("[data-remove]").forEach(btn => {
+    btn.addEventListener("click", () => removeBet(btn.dataset.remove));
+  });
+
+  const clearBtn = document.getElementById("clearAll");
+  if (clearBtn) clearBtn.addEventListener("click", clearAll);
+}
+
+function amountInput(evId, runnerKey) {
+  const el = root.querySelector(`[data-ev="${evId}"][data-runner="${runnerKey}"] input`);
+  return el ? Number(el.value) : 0;
+}
+
+function renderPreview() {
+  root.querySelectorAll(".bet-control").forEach(control => {
+    const hint = control.parentElement.querySelector(".return-hint b");
+    const amt = Number(control.querySelector("input").value) || 0;
+    const ev = EVENTS.find(e => e.id === control.dataset.ev);
+    if (!ev) return;
+    const { totals, pool } = totalsFor(ev);
+    const book = totals[control.dataset.runner];
+    const ret = book > 0 ? (pool * (1 - COMMISSION)) / book : 1 / (1 - COMMISSION);
+    hint.textContent = "₹" + (ret * amt).toFixed(2);
+  });
+}
+
+render();
+</script>
+</body>
+</html>
