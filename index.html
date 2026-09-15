@@ -353,13 +353,13 @@
   <header>
     <h1>🏁 Sprint Betting Pool</h1>
     <p>Krish Jain vs Kshitij Pankaj</p>
-    <span class="commission-badge">1% House Commission</span>
+    <span class="commission-badge">No House Commission</span>
   </header>
 
   <div id="root"></div>
 
   <footer>
-    Pari-mutuel style: winners split 99% of the pool (after 1% house commission).<br />
+    Pari-mutuel style: winners split the entire pool. No house commission.<br />
     We will get back to you with more bets *winkk
     Odds &amp; returns update live as bets come in.
   </footer>
@@ -377,7 +377,7 @@ const EVENTS = [
   ]},
 ];
 
-const COMMISSION = 0.01;
+const COMMISSION = 0;
 const STORAGE_KEY = "sprint_bets";
 const WINNERS_KEY = "sprint_winners";
 
@@ -490,11 +490,10 @@ function netPositions() {
     const betsFor = eventBets(ev);
     betsFor.forEach(b => {
       const payout = b.runnerKey === winner
-        ? (b.amount / book) * winningPool
+        ? (b.amount / book) * pool
         : 0;
       net[b.bidder] = (net[b.bidder] || 0) + (payout - b.amount);
     });
-    net["StakeLite (house)"] = (net["StakeLite (house)"] || 0) + pool * COMMISSION;
   });
   return net;
 }
@@ -632,7 +631,7 @@ function render() {
       <div class="event-card">
         <div class="event-header">
           <h2>${ev.name}</h2>
-          <div class="event-total">Event pool: <span>${fmt(pool)}</span> · After 1% cut: <span>${fmt(winningPool)}</span></div>
+          <div class="event-total">Event pool: <span>${fmt(pool)}</span> · Winners split the full pool</div>
         </div>
 
         <div class="runners">${runnersHtml}</div>
@@ -652,12 +651,8 @@ function render() {
         <div class="value">${fmt(grandPool)}</div>
       </div>
       <div class="summary-box">
-        <div class="label">House Commission (1%)</div>
-        <div class="value gold">${fmt(grandPool * COMMISSION)}</div>
-      </div>
-      <div class="summary-box">
-        <div class="label">Winners Split</div>
-        <div class="value green">${fmt(grandPool * (1 - COMMISSION))}</div>
+        <div class="label">Winners Split (no house cut)</div>
+        <div class="value green">${fmt(grandPool)}</div>
       </div>
     </div>
     ${settlementHtml()}
